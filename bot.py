@@ -23,6 +23,8 @@ from keyboards import (
 
 from services import convert
 from vision import analyze_price_tag
+import logging
+logging.basicConfig(level=logging.INFO)
 
 
 async def show_main_menu(message: Message):
@@ -181,6 +183,7 @@ async def reverse_callback(callback: CallbackQuery, state: FSMContext):
 
 
 async def photo_handler(message: Message):
+    logging.info("PHOTO RECEIVED")
     await message.answer("📷 Анализирую ценник...")
 
     settings = await get_user_settings(message.from_user.id)
