@@ -28,7 +28,7 @@ async def analyze_price_tag(image_bytes: bytes) -> dict:
     image_base64 = base64.b64encode(image_bytes).decode("utf-8")
 
     response = client.models.generate_content(
-        model="gemini-1.5-flash-latest",
+        model="gemini-2.0-flash-lite",
         contents=[
             types.Content(
                 role="user",
