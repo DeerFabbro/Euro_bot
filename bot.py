@@ -1,0 +1,273 @@
+import asyncio
+from aiogram import Bot, Dispatcher, F
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.filters import CommandStart, Command
+from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.fsm.context import FSMContext
+
+from config import Config
+from database import (
+    init_db,
+    create_user_if_not_exists,
+    get_user_settings,
+    update_home_currency,
+    update_language
+)
+
+from keyboards import (
+    currency_keyboard,
+    reverse_keyboard,
+    settings_keyboard,
+    main_menu_keyboard
+)
+
+from services import convert
+
+
+async def show_main_menu(message: Message):
+    await message.answer(
+        "🏠 Главное меню",
+        reply_markup=main_menu_keyboard()
+    )
+
+
+async def start_handler(message: Message):
+    await create_user_if_not_exists(message.from_user.id)
+    await show_main_menu(message)
+
+
+async def settings_handler(message: Message):
+
+    settings = await get_user_settings(message.from_user.id)
+
+    home_currency = settings[0]
+    language = settings[1]
+
+    text = (
+        "⚙️ Настройки\n\n"
+        f"Домашняя валюта: {home_currency}\n"
+        f"Язык: {language}"
+    )
+
+    await message.answer(
+        text,
+        reply_markup=settings_keyboard()
+    )
+
+
+async def menu_convert(callback: CallbackQuery):
+    await callback.message.answer("Введите сумму для конвертации")
+    await callback.answer()
+
+
+async def menu_settings(callback: CallbackQuery):
+
+    settings = await get_user_settings(callback.from_user.id)
+
+    home_currency = settings[0]
+    language = settings[1]
+
+    text = (
+        "⚙️ Настройки\n\n"
+        f"Домашняя валюта: {home_currency}\n"
+        f"Язык: {language}"
+    )
+
+    await callback.message.answer(
+        text,
+        reply_markup=settings_keyboard()
+    )
+
+    await callback.answer()
+
+
+async def main_menu(callback: CallbackQuery):
+    await callback.message.answer(
+        "🏠 Главное меню",
+        reply_markup=main_menu_keyboard()
+    )
+    await callback.answer()
+
+
+async def settings_currency(callback: CallbackQuery):
+
+    buttons = []
+
+    for currency in [
+        "BYN", "CZK", "PLN",
+        "EUR", "USD", "GBP",
+        "HUF", "CHF", "RON",
+        "SEK", "NOK", "DKK",
+        "RUB"
+    ]:
+        buttons.append(
+            InlineKeyboardButton(
+                text=currency,
+                callback_data=f"setcurrency:{currency}"
+            )
+        )
+
+    rows = [buttons[i:i+3] for i in range(0, len(buttons), 3)]
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=rows)
+
+    await callback.message.answer(
+        "Выберите новую домашнюю валюту:",
+        reply_markup=keyboard
+    )
+
+    await callback.answer()
+
+
+async def set_currency(callback: CallbackQuery):
+
+    currency = callback.data.split(":")[1]
+
+    await update_home_currency(callback.from_user.id, currency)
+
+    await callback.message.answer(
+        f"Домашняя валюта обновлена: {currency}",
+        reply_markup=main_menu_keyboard()
+    )
+
+    await callback.answer()
+
+
+async def settings_language(callback: CallbackQuery):
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="RU", callback_data="lang:RU"),
+                InlineKeyboardButton(text="EN", callback_data="lang:EN"),
+                InlineKeyboardButton(text="IT", callback_data="lang:IT")
+            ]
+        ]
+    )
+
+    await callback.message.answer(
+        "Выберите язык:",
+        reply_markup=keyboard
+    )
+
+    await callback.answer()
+
+
+async def language_callback(callback: CallbackQuery):
+
+    language = callback.data.split(":")[1]
+
+    await update_language(callback.from_user.id, language)
+
+    await callback.message.answer(
+        f"Язык обновлён: {language}",
+        reply_markup=main_menu_keyboard()
+    )
+
+    await callback.answer()
+
+
+async def amount_handler(message: Message, state: FSMContext):
+
+    text = message.text.strip()
+
+    try:
+        amount = float(text.replace(",", "."))
+    except ValueError:
+        return
+
+    await state.update_data(amount=amount)
+
+    settings = await get_user_settings(message.from_user.id)
+    home_currency = settings[0]
+
+    await message.answer(
+        f"Сумма: {amount}\nВыберите валюту:",
+        reply_markup=currency_keyboard(home_currency)
+    )
+
+
+async def currency_callback(callback: CallbackQuery, state: FSMContext):
+
+    data = await state.get_data()
+
+    if "amount" not in data:
+        await callback.answer("Сначала введите сумму")
+        return
+
+    amount = data["amount"]
+
+    currency = callback.data.split(":")[1]
+
+    settings = await get_user_settings(callback.from_user.id)
+    home_currency = settings[0]
+
+    result = await convert(amount, currency, home_currency)
+
+    await state.update_data(currency=currency)
+
+    await callback.message.answer(
+        f"{amount} {currency} = {result} {home_currency}",
+        reply_markup=reverse_keyboard()
+    )
+
+    await callback.answer()
+
+
+async def reverse_callback(callback: CallbackQuery, state: FSMContext):
+
+    data = await state.get_data()
+
+    if "amount" not in data or "currency" not in data:
+        await callback.answer("Введите сумму заново")
+        return
+
+    amount = data["amount"]
+    currency = data["currency"]
+
+    settings = await get_user_settings(callback.from_user.id)
+    home_currency = settings[0]
+
+    result = await convert(amount, home_currency, currency)
+
+    await callback.message.answer(
+        f"{amount} {home_currency} = {result} {currency}",
+        reply_markup=reverse_keyboard()
+    )
+
+    await callback.answer()
+
+
+async def main():
+
+    Config.validate()
+    await init_db()
+
+    bot = Bot(token=Config.TELEGRAM_TOKEN)
+
+    storage = MemoryStorage()
+    dp = Dispatcher(storage=storage)
+
+    dp.message.register(start_handler, CommandStart())
+    dp.message.register(settings_handler, Command("settings"))
+
+    dp.message.register(amount_handler)
+
+    dp.callback_query.register(menu_convert, F.data == "menu_convert")
+    dp.callback_query.register(menu_settings, F.data == "menu_settings")
+    dp.callback_query.register(main_menu, F.data == "main_menu")
+
+    dp.callback_query.register(settings_currency, F.data == "settings_currency")
+    dp.callback_query.register(set_currency, F.data.startswith("setcurrency:"))
+
+    dp.callback_query.register(settings_language, F.data == "settings_language")
+    dp.callback_query.register(language_callback, F.data.startswith("lang:"))
+
+    dp.callback_query.register(currency_callback, F.data.startswith("currency:"))
+    dp.callback_query.register(reverse_callback, F.data == "reverse")
+
+    await dp.start_polling(bot)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
