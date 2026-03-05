@@ -27,8 +27,8 @@ PROMPT = """
 async def analyze_price_tag(image_bytes: bytes) -> dict:
     image_base64 = base64.b64encode(image_bytes).decode("utf-8")
 
-    response = client.models.generate_content(
-        model="gemini-2.0-flash-lite",
+    response = await client.aio.models.generate_content(
+        model="gemini-2.5-flash",
         contents=[
             types.Content(
                 role="user",
