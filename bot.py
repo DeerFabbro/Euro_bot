@@ -29,6 +29,13 @@ from vision import analyze_price_tag, get_product_info
 import logging
 logging.basicConfig(level=logging.INFO)
 
+ONBOARDING_TEXT = """👋 Привет! Я Euro Smart Bot.
+
+Умею:
+💱 Конвертировать валюты — просто введи сумму
+📷 Сканировать ценники — отправь фото и я переведу цену и расскажу о товаре
+⚙️ Настройки — выбери домашнюю валюту, язык и список валют для конвертации"""
+
 
 async def show_main_menu(message: Message):
     await message.answer(
@@ -39,6 +46,7 @@ async def show_main_menu(message: Message):
 
 async def start_handler(message: Message):
     await create_user_if_not_exists(message.from_user.id)
+    await message.answer(ONBOARDING_TEXT)
     await show_main_menu(message)
 
 
@@ -180,6 +188,10 @@ async def amount_handler(message: Message, state: FSMContext):
     try:
         amount = float(text.replace(",", "."))
     except ValueError:
+        await message.answer(
+            "Введите сумму для конвертации или отправьте фото ценника",
+            reply_markup=main_menu_keyboard()
+        )
         return
     await state.update_data(amount=amount)
     settings = await get_user_settings(message.from_user.id)
@@ -232,6 +244,7 @@ async def photo_handler(message: Message):
 
     settings = await get_user_settings(message.from_user.id)
     home_currency = settings[0]
+    language = settings[1] or "RU"
 
     bot = message.bot
     photo = message.photo[-1]
@@ -240,10 +253,12 @@ async def photo_handler(message: Message):
     image_bytes = image_bytes.read()
 
     try:
-        language = settings[1] or "RU"
         data = await analyze_price_tag(image_bytes, language)
-    except Exception as e:
-        await message.answer("❌ Не удалось распознать ценник. Попробуйте другое фото.")
+    except Exception:
+        await message.answer(
+            "❌ Не удалось распознать ценник. Отправьте фото ценника или введите сумму для конвертации.",
+            reply_markup=main_menu_keyboard()
+        )
         return
 
     product = data.get("product") or "—"
@@ -253,7 +268,10 @@ async def photo_handler(message: Message):
     promo = data.get("promo")
 
     if not price or not currency:
-        await message.answer("❌ Цена или валюта не распознаны. Попробуйте другое фото.")
+        await message.answer(
+            "❌ Цена или валюта не распознаны. Отправьте фото ценника или введите сумму для конвертации.",
+            reply_markup=main_menu_keyboard()
+        )
         return
 
     try:
@@ -282,7 +300,8 @@ async def photo_handler(message: Message):
     if product and product != "—":
         info = await get_product_info(product, language)
         if info:
-            await message.answer(f"ℹ️ {info}")
+            await message.answer(f"ℹ️ {info}", reply_markup=main_menu_keyboard())
+
 
 async def main():
     Config.validate()

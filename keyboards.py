@@ -26,6 +26,14 @@ def currency_keyboard(home_currency, selected_currencies=None):
         )
 
     rows = [buttons[i:i+3] for i in range(0, len(buttons), 3)]
+
+    rows.append([
+        InlineKeyboardButton(
+            text="🏠 Главное меню",
+            callback_data="main_menu"
+        )
+    ])
+
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
