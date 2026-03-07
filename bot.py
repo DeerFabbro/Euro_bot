@@ -25,7 +25,7 @@ from keyboards import (
 )
 
 from services import convert
-from vision import analyze_price_tag
+from vision import analyze_price_tag, get_product_info
 import logging
 logging.basicConfig(level=logging.INFO)
 
@@ -277,11 +277,12 @@ async def photo_handler(message: Message):
     if promo:
         lines.append(f"🏷 {promo}")
 
-    lines.append("")
-    lines.append("🏠 Главное меню")
-
     await message.answer("\n".join(lines), reply_markup=main_menu_keyboard())
 
+    if product and product != "—":
+        info = await get_product_info(product, language)
+        if info:
+            await message.answer(f"ℹ️ {info}")
 
 async def main():
     Config.validate()
