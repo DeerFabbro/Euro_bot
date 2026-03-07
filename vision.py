@@ -83,6 +83,7 @@ async def analyze_price_tag(image_bytes: bytes, language: str = "RU") -> dict:
 
 
 async def get_product_info(product: str, language: str = "RU") -> str:
+    import logging
     try:
         response = await client.aio.models.generate_content(
             model="gemini-2.5-flash",
@@ -91,8 +92,8 @@ async def get_product_info(product: str, language: str = "RU") -> str:
                 tools=[types.Tool(google_search=types.GoogleSearch())]
             )
         )
-        return response.text.strip()
+        logging.info(f"PRODUCT INFO RESPONSE: {repr(response.text)}")
+        return response.text.strip() if response.text else None
     except Exception as e:
-        import logging
         logging.error(f"GET_PRODUCT_INFO ERROR: {repr(e)}")
         return None
