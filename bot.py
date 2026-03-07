@@ -11,14 +11,17 @@ from database import (
     create_user_if_not_exists,
     get_user_settings,
     update_home_currency,
-    update_language
+    update_language,
+    get_selected_currencies,
+    update_selected_currencies
 )
 
 from keyboards import (
     currency_keyboard,
     reverse_keyboard,
     settings_keyboard,
-    main_menu_keyboard
+    main_menu_keyboard,
+    my_currencies_keyboard
 )
 
 from services import convert
@@ -53,6 +56,11 @@ async def settings_handler(message: Message):
 
 async def menu_convert(callback: CallbackQuery):
     await callback.message.answer("Введите сумму для конвертации")
+    await callback.answer()
+
+
+async def menu_scan(callback: CallbackQuery):
+    await callback.message.answer("📷 Отправьте фото ценника")
     await callback.answer()
 
 
@@ -132,6 +140,41 @@ async def language_callback(callback: CallbackQuery):
     await callback.answer()
 
 
+async def settings_my_currencies(callback: CallbackQuery):
+    selected = await get_selected_currencies(callback.from_user.id)
+    await callback.message.answer(
+        "☑️ Выберите валюты для конвертации:",
+        reply_markup=my_currencies_keyboard(selected)
+    )
+    await callback.answer()
+
+
+async def toggle_currency(callback: CallbackQuery):
+    currency = callback.data.split(":")[1]
+    selected = await get_selected_currencies(callback.from_user.id)
+
+    if currency in selected:
+        if len(selected) > 1:
+            selected.remove(currency)
+    else:
+        selected.append(currency)
+
+    await update_selected_currencies(callback.from_user.id, selected)
+
+    await callback.message.edit_reply_markup(
+        reply_markup=my_currencies_keyboard(selected)
+    )
+    await callback.answer()
+
+
+async def save_currencies(callback: CallbackQuery):
+    await callback.message.answer(
+        "✅ Валюты сохранены",
+        reply_markup=main_menu_keyboard()
+    )
+    await callback.answer()
+
+
 async def amount_handler(message: Message, state: FSMContext):
     text = message.text.strip()
     try:
@@ -141,9 +184,10 @@ async def amount_handler(message: Message, state: FSMContext):
     await state.update_data(amount=amount)
     settings = await get_user_settings(message.from_user.id)
     home_currency = settings[0]
+    selected = await get_selected_currencies(message.from_user.id)
     await message.answer(
         f"Сумма: {amount}\nВыберите валюту:",
-        reply_markup=currency_keyboard(home_currency)
+        reply_markup=currency_keyboard(home_currency, selected)
     )
 
 
@@ -196,9 +240,10 @@ async def photo_handler(message: Message):
     image_bytes = image_bytes.read()
 
     try:
-        data = await analyze_price_tag(image_bytes)
+        language = settings[1] or "RU"
+        data = await analyze_price_tag(image_bytes, language)
     except Exception as e:
-        await message.answer(f"❌ Не удалось распознать ценник. Попробуйте другое фото.")
+        await message.answer("❌ Не удалось распознать ценник. Попробуйте другое фото.")
         return
 
     product = data.get("product") or "—"
@@ -252,12 +297,16 @@ async def main():
     dp.message.register(amount_handler)
 
     dp.callback_query.register(menu_convert, F.data == "menu_convert")
+    dp.callback_query.register(menu_scan, F.data == "menu_scan")
     dp.callback_query.register(menu_settings, F.data == "menu_settings")
     dp.callback_query.register(main_menu, F.data == "main_menu")
     dp.callback_query.register(settings_currency, F.data == "settings_currency")
     dp.callback_query.register(set_currency, F.data.startswith("setcurrency:"))
     dp.callback_query.register(settings_language, F.data == "settings_language")
     dp.callback_query.register(language_callback, F.data.startswith("lang:"))
+    dp.callback_query.register(settings_my_currencies, F.data == "settings_my_currencies")
+    dp.callback_query.register(toggle_currency, F.data.startswith("toggle_currency:"))
+    dp.callback_query.register(save_currencies, F.data == "save_currencies")
     dp.callback_query.register(currency_callback, F.data.startswith("currency:"))
     dp.callback_query.register(reverse_callback, F.data == "reverse")
 

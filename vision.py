@@ -6,25 +6,50 @@ from config import Config
 
 client = genai.Client(api_key=Config.GEMINI_API_KEY)
 
-PROMPT = """
+LANGUAGE_NAMES = {
+    "RU": "русский",
+    "EN": "английский",
+    "IT": "итальянский"
+}
+
+
+def build_prompt(language: str = "RU") -> str:
+    lang_name = LANGUAGE_NAMES.get(language, "русский")
+    return f"""
 Ты анализируешь фото ценника из магазина.
 Извлеки данные и верни ТОЛЬКО валидный JSON без markdown, без пояснений.
 
 Формат:
-{
-  "product": "название товара или null",
+{{
+  "product": "название товара на {lang_name} языке или null",
   "price": число или null,
   "price_per_kg": число или null,
   "currency": "код валюты ISO 4217 или null",
   "promo": "описание акции или null"
-}
+}}
 
 Если цена не найдена — верни price: null.
-Валюту определяй по символу: € = EUR, $ = USD, £ = GBP, zł = PLN, Kč = CZK и т.д.
+Валюту определяй по символу: € = EUR, $ = USD, £ = GBP, zł = PLN, Kč = CZK, руб = RUB и т.д.
+Название товара переведи на {lang_name} язык.
 """
 
 
-async def analyze_price_tag(image_bytes: bytes) -> dict:
+def build_info_prompt(product: str, language: str = "RU") -> str:
+    lang_name = LANGUAGE_NAMES.get(language, "русский")
+    return f"""
+Найди краткую информацию о товаре: {product}
+
+Ответь на {lang_name} языке в 3-4 предложениях. Включи:
+- производитель и страна
+- основные характеристики или состав
+- для чего используется
+- общая репутация или отзывы если известны
+
+Только текст, без заголовков и списков.
+"""
+
+
+async def analyze_price_tag(image_bytes: bytes, language: str = "RU") -> dict:
     image_base64 = base64.b64encode(image_bytes).decode("utf-8")
 
     response = await client.aio.models.generate_content(
@@ -39,7 +64,7 @@ async def analyze_price_tag(image_bytes: bytes) -> dict:
                             data=image_base64
                         )
                     ),
-                    types.Part(text=PROMPT)
+                    types.Part(text=build_prompt(language))
                 ]
             )
         ]
@@ -55,3 +80,19 @@ async def analyze_price_tag(image_bytes: bytes) -> dict:
 
     result = json.loads(raw)
     return result
+
+
+async def get_product_info(product: str, language: str = "RU") -> str:
+    try:
+        response = await client.aio.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=build_info_prompt(product, language),
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(google_search=types.GoogleSearch())]
+            )
+        )
+        return response.text.strip()
+    except Exception as e:
+        import logging
+        logging.error(f"GET_PRODUCT_INFO ERROR: {repr(e)}")
+        return None
