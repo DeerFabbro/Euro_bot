@@ -4,6 +4,7 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKe
 from aiogram.filters import CommandStart, Command
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.fsm.context import FSMContext
+from aiogram.enums import ChatAction
 
 from config import Config
 from database import (
@@ -21,7 +22,8 @@ from keyboards import (
     reverse_keyboard,
     settings_keyboard,
     main_menu_keyboard,
-    my_currencies_keyboard
+    my_currencies_keyboard,
+    hint_keyboard
 )
 
 from services import convert
@@ -190,7 +192,7 @@ async def amount_handler(message: Message, state: FSMContext):
     except ValueError:
         await message.answer(
             "Введите сумму для конвертации или отправьте фото ценника",
-            reply_markup=main_menu_keyboard()
+            reply_markup=hint_keyboard()
         )
         return
     await state.update_data(amount=amount)
@@ -240,6 +242,7 @@ async def reverse_callback(callback: CallbackQuery, state: FSMContext):
 
 async def photo_handler(message: Message):
     logging.info("PHOTO RECEIVED")
+    await message.bot.send_chat_action(message.chat.id, ChatAction.TYPING)
     await message.answer("📷 Анализирую ценник...")
 
     settings = await get_user_settings(message.from_user.id)
@@ -257,7 +260,7 @@ async def photo_handler(message: Message):
     except Exception:
         await message.answer(
             "❌ Не удалось распознать ценник. Отправьте фото ценника или введите сумму для конвертации.",
-            reply_markup=main_menu_keyboard()
+            reply_markup=hint_keyboard()
         )
         return
 
@@ -270,7 +273,7 @@ async def photo_handler(message: Message):
     if not price or not currency:
         await message.answer(
             "❌ Цена или валюта не распознаны. Отправьте фото ценника или введите сумму для конвертации.",
-            reply_markup=main_menu_keyboard()
+            reply_markup=hint_keyboard()
         )
         return
 
@@ -295,12 +298,16 @@ async def photo_handler(message: Message):
     if promo:
         lines.append(f"🏷 {promo}")
 
-    await message.answer("\n".join(lines), reply_markup=main_menu_keyboard())
-
     if product and product != "—":
         info = await get_product_info(product, language)
-        if info:
-            await message.answer(f"ℹ️ {info}", reply_markup=main_menu_keyboard())
+    else:
+        info = None
+
+    if info:
+        await message.answer("\n".join(lines))
+        await message.answer(f"ℹ️ {info}", reply_markup=hint_keyboard())
+    else:
+        await message.answer("\n".join(lines), reply_markup=hint_keyboard())
 
 
 async def main():

@@ -110,6 +110,31 @@ def my_currencies_keyboard(selected_currencies):
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+def hint_keyboard():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="💱 Конвертация",
+                    callback_data="menu_convert"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="📷 Сканировать ценник",
+                    callback_data="menu_scan"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🏠 Главное меню",
+                    callback_data="main_menu"
+                )
+            ]
+        ]
+    )
+
+
 def main_menu_keyboard():
     return InlineKeyboardMarkup(
         inline_keyboard=[
