@@ -49,6 +49,19 @@ def build_info_prompt(product: str, language: str = "RU") -> str:
 """
 
 
+def build_price_evaluation_prompt(product: str, price: float, currency: str, language: str = "RU") -> str:
+    lang_name = LANGUAGE_NAMES.get(language, "русский")
+    return f"""
+Оцени цену товара: {product}
+Цена: {price} {currency}
+
+Ответь на {lang_name} языке в 1-2 предложениях.
+Скажи дорого это, нормально или дёшево для Европы.
+Если уместно — дай краткий совет (например, где найти дешевле).
+Только текст, без заголовков.
+"""
+
+
 async def analyze_price_tag(image_bytes: bytes, language: str = "RU") -> dict:
     image_base64 = base64.b64encode(image_bytes).decode("utf-8")
 
@@ -80,6 +93,23 @@ async def analyze_price_tag(image_bytes: bytes, language: str = "RU") -> dict:
 
     result = json.loads(raw)
     return result
+
+
+async def get_price_evaluation(product: str, price: float, currency: str, language: str = "RU") -> str:
+    import logging
+    try:
+        response = await client.aio.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=build_price_evaluation_prompt(product, price, currency, language),
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(google_search=types.GoogleSearch())]
+            )
+        )
+        logging.info(f"PRICE EVAL RESPONSE: {repr(response.text)}")
+        return response.text.strip() if response.text else None
+    except Exception as e:
+        logging.error(f"PRICE EVAL ERROR: {repr(e)}")
+        return None
 
 
 async def get_product_info(product: str, language: str = "RU") -> str:

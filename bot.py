@@ -27,7 +27,7 @@ from keyboards import (
 )
 
 from services import convert
-from vision import analyze_price_tag, get_product_info
+from vision import analyze_price_tag, get_product_info, get_price_evaluation
 import logging
 logging.basicConfig(level=logging.INFO)
 
@@ -298,16 +298,23 @@ async def photo_handler(message: Message):
     if promo:
         lines.append(f"🏷 {promo}")
 
+    # Сообщение 1 — результат скана
+    await message.answer("\n".join(lines))
+
+    # Сообщение 2 — оценка цены
+    if product and product != "—" and price:
+        evaluation = await get_price_evaluation(product, float(price), currency, language)
+        if evaluation:
+            await message.answer(f"💰 {evaluation}")
+
+    # Сообщение 3 — инфо о товаре + hint_keyboard
     if product and product != "—":
         info = await get_product_info(product, language)
-    else:
-        info = None
+        if info:
+            await message.answer(f"ℹ️ {info}", reply_markup=hint_keyboard())
+            return
 
-    if info:
-        await message.answer("\n".join(lines))
-        await message.answer(f"ℹ️ {info}", reply_markup=hint_keyboard())
-    else:
-        await message.answer("\n".join(lines), reply_markup=hint_keyboard())
+    await message.answer("🏠", reply_markup=hint_keyboard())
 
 
 async def main():
