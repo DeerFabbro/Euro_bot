@@ -49,22 +49,15 @@ def build_info_prompt(product: str, language: str = "RU") -> str:
 """
 
 
-def build_price_evaluation_prompt(product: str, price: float, currency: str, language: str = "RU", country: str = None) -> str:
+def build_price_evaluation_prompt(product: str, price: float, currency: str, language: str = "RU") -> str:
     lang_name = LANGUAGE_NAMES.get(language, "русский")
-    if country:
-        location_context = f"Пользователь находится в стране: {country}."
-        accuracy_note = ""
-    else:
-        location_context = "Геолокация недоступна."
-        accuracy_note = " Данные усреднённые по Европе."
-
     return f"""
 Оцени цену товара: {product}
 Цена: {price} {currency}
-{location_context}
 
+По валюте {currency} и названию товара определи страну и типичный рынок.
 Ответь на {lang_name} языке в 1-2 предложениях.
-Скажи дорого это, нормально или дёшево.{accuracy_note}
+Скажи дорого это, нормально или дёшево для данной страны и рынка.
 Если уместно — дай краткий совет (например, где найти дешевле).
 Только текст, без заголовков.
 """
@@ -103,12 +96,12 @@ async def analyze_price_tag(image_bytes: bytes, language: str = "RU") -> dict:
     return result
 
 
-async def get_price_evaluation(product: str, price: float, currency: str, language: str = "RU", country: str = None) -> str:
+async def get_price_evaluation(product: str, price: float, currency: str, language: str = "RU") -> str:
     import logging
     try:
         response = await client.aio.models.generate_content(
             model="gemini-2.5-flash",
-            contents=build_price_evaluation_prompt(product, price, currency, language, country),
+            contents=build_price_evaluation_prompt(product, price, currency, language),
             config=types.GenerateContentConfig(
                 tools=[types.Tool(google_search=types.GoogleSearch())]
             )
