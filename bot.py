@@ -28,6 +28,7 @@ from keyboards import (
 
 from services import convert
 from vision import analyze_price_tag, get_product_info, get_price_evaluation
+from geo import get_coords_from_exif, get_country_by_coords
 import logging
 logging.basicConfig(level=logging.INFO)
 
@@ -255,6 +256,15 @@ async def photo_handler(message: Message):
     image_bytes = await bot.download_file(file.file_path)
     image_bytes = image_bytes.read()
 
+    # Определяем страну по EXIF
+    country = None
+    coords = get_coords_from_exif(image_bytes)
+    if coords:
+        geo = get_country_by_coords(coords["lat"], coords["lon"])
+        if geo:
+            country = geo["country"]
+            logging.info(f"GEO DETECTED: {country}")
+
     try:
         data = await analyze_price_tag(image_bytes, language)
     except Exception:
@@ -301,9 +311,9 @@ async def photo_handler(message: Message):
     # Сообщение 1 — результат скана
     await message.answer("\n".join(lines))
 
-    # Сообщение 2 — оценка цены
+    # Сообщение 2 — оценка цены с учётом страны
     if product and product != "—" and price:
-        evaluation = await get_price_evaluation(product, float(price), currency, language)
+        evaluation = await get_price_evaluation(product, float(price), currency, language, country)
         if evaluation:
             await message.answer(f"💰 {evaluation}")
 
