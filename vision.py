@@ -34,32 +34,27 @@ def build_prompt(language: str = "RU") -> str:
 """
 
 
-def build_info_prompt(product: str, language: str = "RU") -> str:
+def build_combined_prompt(product: str, price: float, currency: str, language: str = "RU") -> str:
     lang_name = LANGUAGE_NAMES.get(language, "русский")
     return f"""
-Найди краткую информацию о товаре: {product}
+Товар: {product}
+Цена: {price} {currency}
 
-Ответь на {lang_name} языке в 3-4 предложениях. Включи:
+Ответь на {lang_name} языке. Верни ТОЛЬКО два абзаца без заголовков:
+
+Абзац 1 — краткая информация о товаре (3-4 предложения):
 - производитель и страна
 - основные характеристики или состав
 - для чего используется
-- общая репутация или отзывы если известны
+- общая репутация или отзывы
 
-Только текст, без заголовков и списков.
-"""
+Абзац 2 — оценка цены (1-2 предложения):
+По валюте {currency} и названию товара определи страну и рынок.
+Если цена НИЗКАЯ: напиши что цена хорошая, и если качество не вызывает сомнений — стоит брать.
+Если цена СРЕДНЯЯ: напиши что цена нормальная для данного рынка.
+Если цена ВЫСОКАЯ: напиши что стоит поискать дешевле, и назови конкретные альтернативы — дискаунтеры или магазины данной категории товара в данной стране.
 
-
-def build_price_evaluation_prompt(product: str, price: float, currency: str, language: str = "RU") -> str:
-    lang_name = LANGUAGE_NAMES.get(language, "русский")
-    return f"""
-Оцени цену товара: {product}
-Цена: {price} {currency}
-
-По валюте {currency} и названию товара определи страну и типичный рынок.
-Ответь на {lang_name} языке в 1-2 предложениях.
-Скажи дорого это, нормально или дёшево для данной страны и рынка.
-Если уместно — дай краткий совет (например, где найти дешевле).
-Только текст, без заголовков.
+Разделяй абзацы пустой строкой. Только текст, без заголовков и списков.
 """
 
 
@@ -96,35 +91,24 @@ async def analyze_price_tag(image_bytes: bytes, language: str = "RU") -> dict:
     return result
 
 
-async def get_price_evaluation(product: str, price: float, currency: str, language: str = "RU") -> str:
+async def get_product_details(product: str, price: float, currency: str, language: str = "RU") -> tuple[str, str]:
     import logging
     try:
         response = await client.aio.models.generate_content(
             model="gemini-2.5-flash",
-            contents=build_price_evaluation_prompt(product, price, currency, language),
+            contents=build_combined_prompt(product, price, currency, language),
             config=types.GenerateContentConfig(
                 tools=[types.Tool(google_search=types.GoogleSearch())]
             )
         )
-        logging.info(f"PRICE EVAL RESPONSE: {repr(response.text)}")
-        return response.text.strip() if response.text else None
+        logging.info(f"PRODUCT DETAILS RESPONSE: {repr(response.text)}")
+        text = response.text.strip() if response.text else None
+        if not text:
+            return None, None
+        parts = text.split("\n\n", 1)
+        info = parts[0].strip() if len(parts) > 0 else None
+        evaluation = parts[1].strip() if len(parts) > 1 else None
+        return info, evaluation
     except Exception as e:
-        logging.error(f"PRICE EVAL ERROR: {repr(e)}")
-        return None
-
-
-async def get_product_info(product: str, language: str = "RU") -> str:
-    import logging
-    try:
-        response = await client.aio.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=build_info_prompt(product, language),
-            config=types.GenerateContentConfig(
-                tools=[types.Tool(google_search=types.GoogleSearch())]
-            )
-        )
-        logging.info(f"PRODUCT INFO RESPONSE: {repr(response.text)}")
-        return response.text.strip() if response.text else None
-    except Exception as e:
-        logging.error(f"GET_PRODUCT_INFO ERROR: {repr(e)}")
-        return None
+        logging.error(f"PRODUCT DETAILS ERROR: {repr(e)}")
+        return None, None
