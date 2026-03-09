@@ -132,7 +132,17 @@ async def settings_language(callback: CallbackQuery):
             [
                 InlineKeyboardButton(text="RU", callback_data="lang:RU"),
                 InlineKeyboardButton(text="EN", callback_data="lang:EN"),
-                InlineKeyboardButton(text="IT", callback_data="lang:IT")
+                InlineKeyboardButton(text="IT", callback_data="lang:IT"),
+            ],
+            [
+                InlineKeyboardButton(text="DE", callback_data="lang:DE"),
+                InlineKeyboardButton(text="FI", callback_data="lang:FI"),
+                InlineKeyboardButton(text="PL", callback_data="lang:PL"),
+            ],
+            [
+                InlineKeyboardButton(text="CS", callback_data="lang:CS"),
+                InlineKeyboardButton(text="NL", callback_data="lang:NL"),
+                InlineKeyboardButton(text="ES", callback_data="lang:ES"),
             ]
         ]
     )
@@ -259,7 +269,8 @@ async def photo_handler(message: Message):
 
     try:
         data = await analyze_price_tag(image_bytes, language)
-    except Exception:
+    except Exception as e:
+        logging.error(f"ANALYZE ERROR: {repr(e)}")
         await message.answer(
             "❌ Не удалось распознать ценник. Отправьте фото ценника или введите сумму для конвертации.",
             reply_markup=hint_keyboard()
@@ -274,7 +285,7 @@ async def photo_handler(message: Message):
 
     if not price or not currency:
         await message.answer(
-            "❌ Цена или валюта не распознаны. Отправьте фото ценника или введите сумму для конвертации.",
+            "❌ Это не похоже на ценник. Отправьте фото ценника или введите сумму для конвертации.",
             reply_markup=hint_keyboard()
         )
         return
