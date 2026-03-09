@@ -3,7 +3,7 @@ import time
 from config import Config
 
 SUPPORTED_CURRENCIES = {
-    "RUB", "EUR",
+    "RUB", "EUR", "USD",
     "BYN", "PLN", "CZK", "HUF",
     "CHF", "GBP", "RSD",
     "RON", "SEK", "NOK", "DKK"
