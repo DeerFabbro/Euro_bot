@@ -57,7 +57,7 @@ async def settings_handler(message: Message):
     home_currency = settings[0]
     language = settings[1]
     text = (
-        "⚙️ Настройки\n\n"
+        "⚙️ Настройки\n"
         f"Домашняя валюта: {home_currency}\n"
         f"Язык: {language}"
     )
@@ -79,7 +79,7 @@ async def menu_settings(callback: CallbackQuery):
     home_currency = settings[0]
     language = settings[1]
     text = (
-        "⚙️ Настройки\n\n"
+        "⚙️ Настройки\n"
         f"Домашняя валюта: {home_currency}\n"
         f"Язык: {language}"
     )
@@ -230,7 +230,7 @@ async def currency_callback(callback: CallbackQuery, state: FSMContext):
     await state.update_data(currency=currency)
     rate = round(result / amount, 4)
     await callback.message.answer(
-        f"{amount} {currency} = {result} {home_currency} · 1 {currency} = {rate} {home_currency}",
+        f"{amount} {currency} = {result} {home_currency}\n💱 1 {currency} = {rate} {home_currency}",
         reply_markup=reverse_keyboard()
     )
     await callback.answer()
@@ -248,7 +248,7 @@ async def reverse_callback(callback: CallbackQuery, state: FSMContext):
     result = await convert(amount, home_currency, currency)
     rate = round(result / amount, 4)
     await callback.message.answer(
-        f"{amount} {home_currency} = {result} {currency} · 1 {home_currency} = {rate} {currency}",
+        f"{amount} {home_currency} = {result} {currency}\n💱 1 {home_currency} = {rate} {currency}",
         reply_markup=reverse_keyboard()
     )
     await callback.answer()
