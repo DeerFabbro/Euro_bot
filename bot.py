@@ -230,7 +230,7 @@ async def currency_callback(callback: CallbackQuery, state: FSMContext):
     await state.update_data(currency=currency)
     rate = round(result / amount, 4)
     await callback.message.answer(
-        f"{amount} {currency} = {result} {home_currency}\n💱 Курс: 1 {currency} = {rate} {home_currency}",
+        f"{amount} {currency} = {result} {home_currency} · 1 {currency} = {rate} {home_currency}",
         reply_markup=reverse_keyboard()
     )
     await callback.answer()
@@ -246,8 +246,9 @@ async def reverse_callback(callback: CallbackQuery, state: FSMContext):
     settings = await get_user_settings(callback.from_user.id)
     home_currency = settings[0]
     result = await convert(amount, home_currency, currency)
+    rate = round(result / amount, 4)
     await callback.message.answer(
-        f"{amount} {home_currency} = {result} {currency}",
+        f"{amount} {home_currency} = {result} {currency} · 1 {home_currency} = {rate} {currency}",
         reply_markup=reverse_keyboard()
     )
     await callback.answer()
