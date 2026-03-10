@@ -41,16 +41,14 @@ def reverse_keyboard():
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(
-                    text="🔄 Reverse",
-                    callback_data="reverse"
-                )
+                InlineKeyboardButton(text="🔄 Reverse", callback_data="reverse")
             ],
             [
-                InlineKeyboardButton(
-                    text="🏠 Главное меню",
-                    callback_data="main_menu"
-                )
+                InlineKeyboardButton(text="💱 Конвертация", callback_data="menu_convert"),
+                InlineKeyboardButton(text="📷 Сканировать", callback_data="menu_scan")
+            ],
+            [
+                InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")
             ]
         ]
     )

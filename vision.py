@@ -30,6 +30,7 @@ def build_prompt(language: str = "RU") -> str:
   "product": "название товара на {lang_name} языке или null",
   "price": число или null,
   "price_per_kg": число или null,
+  "weight": число или null,
   "currency": "код валюты ISO 4217 или null",
   "promo": "описание акции или null"
 }}
@@ -37,14 +38,21 @@ def build_prompt(language: str = "RU") -> str:
 Если цена не найдена — верни price: null.
 Валюту определяй по символу: € = EUR, $ = USD, £ = GBP, zł = PLN, Kč = CZK, руб = RUB и т.д.
 Название товара переведи на {lang_name} язык.
+weight — вес товара в кг если указан на ценнике (например 2.990), иначе null.
 """
 
 
-def build_combined_prompt(product: str, price: float, currency: str, language: str = "RU") -> str:
+def build_combined_prompt(product: str, price: float, currency: str, language: str = "RU", price_per_kg: float = None, weight: float = None) -> str:
     lang_name = LANGUAGE_NAMES.get(language, "русский")
+
+    if price_per_kg and weight:
+        price_context = f"Сумма: {price} {currency} (вес: {weight} кг, цена за кг: {price_per_kg} {currency})"
+    else:
+        price_context = f"Цена: {price} {currency}"
+
     return f"""
 Товар: {product}
-Цена: {price} {currency}
+{price_context}
 
 Ответь на {lang_name} языке. Верни ТОЛЬКО два абзаца без заголовков:
 
@@ -56,6 +64,7 @@ def build_combined_prompt(product: str, price: float, currency: str, language: s
 
 Абзац 2 — оценка цены (1-2 предложения):
 По валюте {currency} и названию товара определи страну и рынок.
+Оценивай цену за единицу измерения товара (за кг если весовой, за штуку если штучный, за литр если жидкость).
 Если цена НИЗКАЯ: напиши что цена хорошая, и если качество не вызывает сомнений — стоит брать.
 Если цена СРЕДНЯЯ: напиши что цена нормальная для данного рынка.
 Если цена ВЫСОКАЯ: напиши что стоит поискать дешевле, и назови конкретные альтернативы — дискаунтеры или магазины данной категории товара в данной стране.
@@ -97,12 +106,12 @@ async def analyze_price_tag(image_bytes: bytes, language: str = "RU") -> dict:
     return result
 
 
-async def get_product_details(product: str, price: float, currency: str, language: str = "RU") -> tuple[str, str]:
+async def get_product_details(product: str, price: float, currency: str, language: str = "RU", price_per_kg: float = None, weight: float = None) -> tuple[str, str]:
     import logging
     try:
         response = await client.aio.models.generate_content(
             model="gemini-2.5-flash",
-            contents=build_combined_prompt(product, price, currency, language),
+            contents=build_combined_prompt(product, price, currency, language, price_per_kg, weight),
             config=types.GenerateContentConfig(
                 tools=[types.Tool(google_search=types.GoogleSearch())]
             )

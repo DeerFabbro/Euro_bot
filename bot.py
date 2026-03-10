@@ -89,7 +89,7 @@ async def menu_settings(callback: CallbackQuery):
 
 async def main_menu(callback: CallbackQuery):
     await callback.message.answer(
-        "🏠 Главное меню",
+        "👋 Я Euro Smart Bot.\nНе нужно искать кнопки — просто введи сумму или отправь фото ценника в любой момент. Я переведу цену, расскажу о товаре и оценю выгоду покупки.",
         reply_markup=main_menu_keyboard()
     )
     await callback.answer()
@@ -248,7 +248,7 @@ async def reverse_callback(callback: CallbackQuery, state: FSMContext):
     result = await convert(amount, home_currency, currency)
     rate = round(result / amount, 4)
     await callback.message.answer(
-        f"{amount} {home_currency} = {result} {currency}\n💱 1 {home_currency} = {rate} {currency}",
+        f"{amount} {home_currency} = {result} {currency} · 1 {home_currency} = {rate} {currency}",
         reply_markup=reverse_keyboard()
     )
     await callback.answer()
@@ -318,7 +318,11 @@ async def photo_handler(message: Message):
 
     # Сообщения 2 и 3 — один запрос к Gemini
     if product and product != "—" and price:
-        info, evaluation = await get_product_details(product, float(price), currency, language)
+        info, evaluation = await get_product_details(
+            product, float(price), currency, language,
+            float(price_per_kg) if price_per_kg else None,
+            float(data.get("weight")) if data.get("weight") else None
+        )
         if evaluation:
             await message.answer(f"💰 {evaluation}")
         if info:
