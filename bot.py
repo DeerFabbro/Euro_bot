@@ -306,9 +306,11 @@ async def photo_handler(message: Message):
     if price_per_kg:
         try:
             converted_kg = await convert(float(price_per_kg), currency, home_currency)
-            lines.append(f"📦 За кг: {price_per_kg} {currency} → {converted_kg} {home_currency}")
+            unit_label = data.get("price_unit_label") or "за кг"
+            lines.append(f"📦 {unit_label}: {price_per_kg} {currency} → {converted_kg} {home_currency}")
         except Exception:
-            lines.append(f"📦 За кг: {price_per_kg} {currency}")
+            unit_label = data.get("price_unit_label") or "за кг"
+            lines.append(f"📦 {unit_label}: {price_per_kg} {currency}")
 
     if promo:
         lines.append(f"🏷 {promo}")

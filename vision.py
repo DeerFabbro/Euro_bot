@@ -30,6 +30,8 @@ def build_prompt(language: str = "RU") -> str:
   "product": "название товара на {lang_name} языке или null",
   "price": число или null,
   "price_per_kg": число или null,
+  "price_unit_label": "локализованная единица измерения цены на {lang_name} языке, например 'за кг', 'al kg', 'per kg', 'за шт' — или null если не применимо",
+
   "weight": число или null,
   "currency": "код валюты ISO 4217 или null",
   "promo": "описание акции или null"
